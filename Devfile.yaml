@@ -1,0 +1,107 @@
+schemaVersion: 2.2.0
+metadata:
+  name: nodejs-rest-api-workspace
+  version: 1.0.0
+  description: Devfile for Node.js REST API with Express.js, Playwright, and Insomnia
+
+components:
+  # Main development container for running Node.js
+  - name: nodejs-dev
+    container:
+      image: node:18
+      memoryLimit: 1024Mi
+      mountSources: true
+      command: ['tail']
+      args: ['-f', '/dev/null']
+      endpoints:
+        - name: http
+          targetPort: 3000
+          exposure: public
+      volumeMounts:
+        - name: npm-cache
+          path: /home/node/.npm
+
+  # Insomnia CLI for API testing
+  - name: insomnia-cli
+    container:
+      image: insomnia/rest-cli:latest
+      memoryLimit: 512Mi
+      command: ['tail']
+      args: ['-f', '/dev/null']
+
+  # Playwright for browser testing
+  - name: playwright
+    container:
+      image: node:18
+      memoryLimit: 1024Mi
+      mountSources: true
+      command: ['tail']
+      args: ['-f', '/dev/null']
+      volumeMounts:
+        - name: playwright-data
+          path: /playwright
+
+  # Git component to reference the repository (Optional)
+  - name: project-source
+    git:
+      url: "https://github.com/hodeh/node.js-REST-API-openshift-example.git"
+      branch: main
+
+volumes:
+  - name: npm-cache
+    size: 1Gi
+  - name: playwright-data
+    size: 1Gi
+
+commands:
+  # Install project dependencies
+  - id: install-dependencies
+    exec:
+      component: nodejs-dev
+      commandLine: npm install
+      workingDir: /projects/node.js-REST-API-openshift-example
+      group:
+        kind: build
+        isDefault: true
+
+  # Start the Node.js application
+  - id: run-app
+    exec:
+      component: nodejs-dev
+      commandLine: npm start
+      workingDir: /projects/node.js-REST-API-openshift-example
+      group:
+        kind: run
+        isDefault: true
+
+  # Install Playwright dependencies
+  - id: install-playwright
+    exec:
+      component: playwright
+      commandLine: npm install playwright
+      workingDir: /projects/node.js-REST-API-openshift-example
+      group:
+        kind: build
+
+  # Run Playwright tests
+  - id: run-playwright-tests
+    exec:
+      component: playwright
+      commandLine: npx playwright test
+      workingDir: /projects/node.js-REST-API-openshift-example
+      group:
+        kind: run
+
+  # Run Insomnia API tests
+  - id: run-insomnia-tests
+    exec:
+      component: insomnia-cli
+      commandLine: insomnia send --all
+      workingDir: /projects/node.js-REST-API-openshift-example
+      group:
+        kind: run
+
+events:
+  preStart:
+    - install-dependencies
+    - install-playwright
